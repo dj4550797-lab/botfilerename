@@ -12,6 +12,10 @@ DB_URL = os.environ.get("DB_URL")
 ADMIN = int(os.environ.get("ADMIN", 0))
 DEVELOPER_USR = os.environ.get("DEVELOPER_USR", "Flixora") 
 
+# --- DATABASE SAFEGUARD ---
+if not DB_URL:
+    raise ValueError("❌ DB_URL environment variable is missing! Please set your MongoDB Atlas URI in Render.")
+
 # --- DATABASE SETUP ---
 db_client = AsyncIOMotorClient(DB_URL)
 db = db_client["SecureRenamePro_V3"]
@@ -23,13 +27,18 @@ async def is_bot_public():
     return doc.get("public", False) if doc else False
 
 # --- WEB SERVER (For Render Uptime) ---
-async def handle(request): return web.Response(text="Bot is Secure & Running! 🛡️")
+async def handle(request): 
+    return web.Response(text="Bot is Secure & Running! 🛡️")
+
 async def start_web_server():
     server = web.Application()
     server.router.add_get('/', handle)
     runner = web.AppRunner(server)
     await runner.setup()
-    await web.TCPSite(runner, '0.0.0.0', 8080).start()
+    # Render requires binding to the dynamic PORT environment variable
+    port = int(os.environ.get("PORT", 8080))
+    await web.TCPSite(runner, '0.0.0.0', port).start()
+    print(f"🌐 Web server started on port {port}")
 
 app = Client("rename_bot_pro", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
@@ -54,7 +63,6 @@ async def progress_bar(current, total, status_msg, start_time):
         except: pass
 
 # --- UI MESSAGES (BEAUTIFIED) ---
-
 START_TEXT = (
     "✨ **Welcome to Pro Rename Bot v3.1** ✨\n\n"
     "Hello **{name}**, I am a premium, high-speed file renamer bot designed for speed and security.\n\n"
@@ -168,6 +176,7 @@ async def rename_handler(client, message):
 async def main():
     await start_web_server()
     await app.start()
+    print("🤖 Bot Started Successfully!")
     await idle()
 
 if __name__ == "__main__":
